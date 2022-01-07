@@ -1,0 +1,404 @@
+#!/usr/bin/python3
+from asciimatics.event import KeyboardEvent
+from asciimatics.exceptions import NextScene, ResizeScreenError, StopApplication
+from asciimatics.parsers import AsciimaticsParser
+from asciimatics.scene import Scene
+from asciimatics.screen import Screen
+from asciimatics.widgets import Button, CheckBox, Divider, Frame, Layout, ListBox, PopUpDialog, Text, TextBox, VerticalDivider, Widget
+from collections import defaultdict
+import os, pyperclip, sqlite3, sys, threading, time, webbrowser
+from bs4 import BeautifulSoup
+from natsort import humansorted
+from urllib.parse import urlsplit
+from urllib.request import urlopen
+
+bukuDB = '/%s/.local/share/buku/bookmarks.db' % os.getenv("HOME")
+
+def db_load():
+    global bookmarks, bookmarksf, db_time
+
+    conn = sqlite3.connect(bukuDB)
+    c = conn.cursor()
+    
+    try:
+        c.execute('SELECT * FROM bookmarks')
+    except:
+        c.execute('CREATE TABLE if not exists bookmarks (id integer PRIMARY KEY, URL text NOT NULL UNIQUE, '
+                        'metadata text default \'\', tags text default \',\', desc text default \'\', '
+                        'flags integer default 0)')
+
+    bookmarks = list(c.fetchall())
+    bookmarks = humansorted(bookmarks, key=lambda x:x[2])
+    bookmarksf = bookmarks.copy()
+
+    db_time = os.path.getmtime(bukuDB)
+
+def fix_url(url):
+    if not url.startswith('http://') and not url.startswith('https://'):
+        return 'http://' + url
+    else:
+        return url
+
+def get_metadata(url):
+    name = None
+    desc = None
+
+    try:
+        soup = BeautifulSoup(urlopen(url, timeout=3).read(), "html.parser")
+
+        try:
+            name = soup.find("meta",  {"property":"og:title"})["content"]
+        except:
+            pass
+        if not name:
+            try:
+                name = soup.find("meta",  {"name":"title"})["content"]
+            except:
+                pass
+        if not name:
+            try:
+                name = soup.find("meta",  {"name":"twitter:title"})["content"]
+            except:
+                pass
+
+        try:
+            desc = soup.find("meta",  {"property":"og:description"})["content"]
+        except:
+            pass
+        if not desc:
+            try:
+                desc = soup.find("meta",  {"name":"description"})["content"]
+            except:
+                pass
+        if not desc:
+            try:
+                desc = soup.find("meta",  {"name":"twitter:description"})["content"]
+            except:
+                pass
+    
+        return [name, desc[:1500]]
+    except:
+        return None
+
+
+# FIXME: For some reason this has to be outside the main frame to function
+def bookmark_delete(self):
+    self._scene.add_effect(PopUpDialog(self._screen, "Delete this bookmark?", ["Yes", "No"], has_shadow=True,
+            on_close=self._bookmark_delete_on_yes))
+
+# FIXME: Hack to transfer info from main frame. There is probably a proper way to do this.
+selected_entry = 0
+
+# FIXME: Hack to store the last frame's selected widget. There is probably a proper way to do this.
+prev_widget = None
+
+class bukuTFrame(Frame):
+    def __init__(self, screen):
+        super(bukuTFrame, self).__init__(
+            screen, screen.height, screen.width, has_border=True, name="bukuT", can_scroll=False)
+
+        layout = Layout([59,1,10,10,10,10], fill_frame=False)
+        layout2 = Layout([59,1,40], fill_frame=True)
+
+        self.add_layout(layout)
+        self.add_layout(layout2)
+
+        self._searchbar = Text(label = '\U0001F50D', on_change=self.FilterBookmarks)
+        
+        self._sbname = CheckBox("Name", name="Name", on_change=self.FilterBookmarks)
+        self._sburl = CheckBox("URL", name="URL", on_change=self.FilterBookmarks)
+        self._sbtags = CheckBox("Tags", name="Tags", on_change=self.FilterBookmarks)
+        self._sbdesc = CheckBox("Desc", name="Desc", on_change=self.FilterBookmarks)
+
+        self._list = ListBox(Widget.FILL_FRAME,options=[(bookmarksf[i][2],i) for i in range(0,len(bookmarksf))], add_scroll_bar=True, on_change=self.details)
+
+        self._details = TextBox(Widget.FILL_FRAME, as_string=True, line_wrap=True, parser=AsciimaticsParser())
+        self._details.disabled = True
+        self._details.custom_colour = "field"
+
+        # Activate checkboxes
+        self._sbname.value = 1
+        self._sburl.value = 1
+        self._sbtags.value = 1
+        self._sbdesc.value = 1
+
+        layout.add_widget(self._searchbar, 0)
+        layout.add_widget(Divider(draw_line=True), 0)
+        layout.add_widget(Divider(draw_line=True, height=2), 1)
+        layout.add_widget(self._sbname, 2)
+        layout.add_widget(Divider(draw_line=True), 2)
+        layout.add_widget(self._sburl, 3)
+        layout.add_widget(Divider(draw_line=True), 3)
+        layout.add_widget(self._sbtags, 4)
+        layout.add_widget(Divider(draw_line=True), 4)
+        layout.add_widget(self._sbdesc, 5)
+        layout.add_widget(Divider(draw_line=True), 5)
+
+        layout2.add_widget(self._list, 0)
+        layout2.add_widget(VerticalDivider(), 1)
+        layout2.add_widget(self._details, 2)
+
+        self.palette = defaultdict(
+            lambda: (Screen.COLOUR_WHITE, Screen.A_NORMAL, Screen.COLOUR_BLACK))
+        for key in ["selected_focus_field", "label"]:
+            self.palette[key] = (Screen.COLOUR_YELLOW, Screen.A_BOLD, Screen.COLOUR_RED)
+        self.palette["borders"] = (Screen.COLOUR_GREEN, Screen.A_NORMAL, Screen.COLOUR_BLACK)
+        self.palette["edit_text"] = (Screen.COLOUR_BLACK, Screen.A_NORMAL, Screen.COLOUR_WHITE)
+        self.palette["focus_edit_text"] = (Screen.COLOUR_YELLOW, Screen.A_BOLD, Screen.COLOUR_RED)
+        self.palette["label"] = (Screen.COLOUR_CYAN, Screen.A_NORMAL, Screen.COLOUR_BLACK)
+        self.palette["scroll"] = (Screen.COLOUR_GREEN, Screen.A_NORMAL, Screen.COLOUR_MAGENTA)
+        self.palette["selected_field"] = (Screen.COLOUR_BLACK, Screen.A_NORMAL, Screen.COLOUR_WHITE)
+
+        self.fix()
+
+        self._thread = threading.Thread(target=self._db_cfc)
+        self._thread.timeout = 3
+        self._thread.daemon = True
+        self._thread.start()
+
+    def FilterBookmarks(self):
+        global bookmarksf
+
+        if self._searchbar.value:
+            bookmarksf.clear()
+            for i in range(0,len(bookmarks)):
+                if ((self._sburl.value and self._searchbar.value.casefold() in bookmarks[i][1].casefold()) or 
+                        (self._sbname.value and self._searchbar.value.casefold() in bookmarks[i][2].casefold()) or 
+                        (self._sbtags.value and self._searchbar.value.casefold() in bookmarks[i][3].casefold()) or 
+                        (self._sbdesc.value and self._searchbar.value.casefold() in bookmarks[i][4].casefold())):
+                    bookmarksf.append(bookmarks[i])
+        else:
+            bookmarksf = bookmarks.copy()
+
+        self._list.options = [(bookmarksf[i][2],i) for i in range(0,len(bookmarksf))]
+        self.details()
+
+    def details(self):
+        global selected_entry
+
+        if self._list.options:
+            self._details.value = "${9}Name:${7} %s\n${9}URL:${7} %s\n${9}Tags:${7} %s\n${9}Description:${7} %s\n" % (bookmarksf[self._list.value][2], bookmarksf[self._list.value][1], bookmarksf[self._list.value][3][1:][:-1], bookmarksf[self._list.value][4])
+            selected_entry = self._list.value
+        else:
+            self._details.value = ""
+
+    def _db_cfc(self):
+        global db_time
+
+        while True:
+            if os.path.getmtime(bukuDB) > db_time:
+                db_load()
+                self._list.options = [(bookmarksf[i][2],i) for i in range(0,len(bookmarksf))]
+                self._screen.force_update()
+                self.details()
+
+    def _bookmark_delete_on_yes(self, selected):
+        if selected == 0:
+            conn = sqlite3.connect(bukuDB)
+            c = conn.cursor()
+            c.execute('DELETE FROM bookmarks WHERE id=%d' % bookmarksf[self._list.value][0])
+            conn.commit()
+            self._list._has_focus = True
+
+#            last_selection = self._list.value
+#            last_start = self._list.start_line
+
+#            self._list.value = last_selection
+#            self._list.start_line = last_start
+
+    def process_event(self, event):
+        global prev_widget
+
+        # Do the key handling for this Frame.
+        if isinstance(event, KeyboardEvent):
+            if event.key_code in [Screen.ctrl("q")]:
+                raise StopApplication("User quit")
+            if self._list._has_focus:
+                if event.key_code == 10 or event.key_code == 13:
+                    webbrowser.open(bookmarksf[self._list.value][1], new=2)
+                elif event.key_code in [Screen.ctrl("y")]:
+                    pyperclip.copy(bookmarksf[self._list.value][1])
+                elif event.key_code == Screen.KEY_INSERT:
+                    prev_widget = self
+                    self._scene.add_effect(ABFrame(self._screen))
+                elif event.key_code in [Screen.ctrl("e")]:
+                    prev_widget = self
+                    self._scene.add_effect(EBFrame(self._screen))
+                elif event.key_code == Screen.KEY_DELETE:
+                    bookmark_delete(self)
+                    
+        # Now pass on to lower levels for normal handling of the event.
+        return super(bukuTFrame, self).process_event(event)
+
+class ABFrame(Frame):
+    def __init__(self, screen):
+        super(ABFrame, self).__init__(
+            screen, int(screen.height/2), int(screen.width/2), has_border=True, name="Add Bookmark", can_scroll=False)
+
+        layout = Layout([100], fill_frame=False)
+        layout2 = Layout([33,33,34], fill_frame=False)
+
+        self.add_layout(layout)
+        self.add_layout(layout2)
+
+        self._name = Text(label='Name:')
+        self._url = Text(label='URL:')
+        self._tags = Text(label='Tags:')
+        self._desc = TextBox(height=int(screen.height/2)-6, label='Description:', as_string=True, line_wrap=True)
+
+        layout.add_widget(self._name, 0)
+        layout.add_widget(self._url, 0)
+        layout.add_widget(self._tags, 0)
+        layout.add_widget(self._desc, 0)
+
+        layout2.add_widget(Button("Add", self._add), 0)
+        layout2.add_widget(Button("Autofill", self._autofill), 1)
+        layout2.add_widget(Button("Cancel", self._cancel), 2)
+
+        self.palette = defaultdict(
+            lambda: (Screen.COLOUR_WHITE, Screen.A_NORMAL, Screen.COLOUR_BLACK))
+        for key in ["selected_focus_field", "label"]:
+            self.palette[key] = (Screen.COLOUR_YELLOW, Screen.A_BOLD, Screen.COLOUR_RED)
+        self.palette["borders"] = (Screen.COLOUR_GREEN, Screen.A_NORMAL, Screen.COLOUR_BLACK)
+        self.palette["edit_text"] = (Screen.COLOUR_WHITE, Screen.A_NORMAL, Screen.COLOUR_BLACK)
+        self.palette["focus_edit_text"] = (Screen.COLOUR_YELLOW, Screen.A_BOLD, Screen.COLOUR_RED)
+        self.palette["label"] = (Screen.COLOUR_CYAN, Screen.A_NORMAL, Screen.COLOUR_BLACK)
+        self.palette["scroll"] = (Screen.COLOUR_GREEN, Screen.A_NORMAL, Screen.COLOUR_MAGENTA)
+        self.palette["selected_field"] = (Screen.COLOUR_BLACK, Screen.A_NORMAL, Screen.COLOUR_WHITE)
+
+        self.fix()
+
+    def _add(self):
+        if self._url.value:
+            self._url.value = fix_url(self._url.value)
+            conn = sqlite3.connect(bukuDB)
+            c = conn.cursor()
+            c.execute('''INSERT OR REPLACE INTO bookmarks(URL,metadata,tags,desc) VALUES(?,?,?,?)''', (self._url.value, self._name.value if self._name.value else self._url.value, ',%s,' % str(self._tags.value), str(self._desc.value)))
+            conn.commit()
+
+            self._scene.remove_effect(self)
+            prev_widget._list._has_focus = True
+
+    def _autofill(self):
+        if self._url.value:
+            self._url.value = fix_url(self._url.value)
+
+            metadata = get_metadata(self._url.value)
+
+            if metadata:
+                if metadata[0]:
+                    self._name.value = metadata[0]
+
+                if metadata[1]:
+                    self._desc.value = metadata[1]
+
+    def _cancel(self):
+        self._scene.remove_effect(self)
+        prev_widget._list._has_focus = True
+
+    def process_event(self, event):
+        # Do the key handling for this Frame.
+        if isinstance(event, KeyboardEvent):
+            if event.key_code == Screen.KEY_ESCAPE:
+                self._scene.remove_effect(self)
+
+        # Now pass on to lower levels for normal handling of the event.
+        return super(ABFrame, self).process_event(event)
+
+class EBFrame(Frame):
+    def __init__(self, screen):
+        super(EBFrame, self).__init__(
+            screen, int(screen.height/2), int(screen.width/2), has_border=True, name="Edit Bookmark", can_scroll=False)
+
+        layout = Layout([100], fill_frame=False)
+        layout2 = Layout([33,33,34], fill_frame=False)
+
+        self.add_layout(layout)
+        self.add_layout(layout2)
+
+        self._name = Text(label='Name:')
+        self._name.value = bookmarksf[selected_entry][2]
+        self._url = Text(label='URL:')
+        self._url.value = bookmarksf[selected_entry][1]
+        self._tags = Text(label='Tags:')
+        self._tags.value = bookmarksf[selected_entry][3][1:][:-1]
+        self._desc = TextBox(height=int(screen.height/2)-6, label='Description:', as_string=True, line_wrap=True)
+        self._desc.value = bookmarksf[selected_entry][4]
+
+        layout.add_widget(self._name, 0)
+        layout.add_widget(self._url, 0)
+        layout.add_widget(self._tags, 0)
+        layout.add_widget(self._desc, 0)
+
+        layout2.add_widget(Button("Save", self._edit), 0)
+        layout2.add_widget(Button("Autofill", self._autofill), 1)
+        layout2.add_widget(Button("Cancel", self._cancel), 2)
+
+        self.palette = defaultdict(
+            lambda: (Screen.COLOUR_WHITE, Screen.A_NORMAL, Screen.COLOUR_BLACK))
+        for key in ["selected_focus_field", "label"]:
+            self.palette[key] = (Screen.COLOUR_YELLOW, Screen.A_BOLD, Screen.COLOUR_RED)
+        self.palette["borders"] = (Screen.COLOUR_GREEN, Screen.A_NORMAL, Screen.COLOUR_BLACK)
+        self.palette["edit_text"] = (Screen.COLOUR_WHITE, Screen.A_NORMAL, Screen.COLOUR_BLACK)
+        self.palette["focus_edit_text"] = (Screen.COLOUR_YELLOW, Screen.A_BOLD, Screen.COLOUR_RED)
+        self.palette["label"] = (Screen.COLOUR_CYAN, Screen.A_NORMAL, Screen.COLOUR_BLACK)
+        self.palette["scroll"] = (Screen.COLOUR_GREEN, Screen.A_NORMAL, Screen.COLOUR_MAGENTA)
+        self.palette["selected_field"] = (Screen.COLOUR_BLACK, Screen.A_NORMAL, Screen.COLOUR_WHITE)
+
+        self.fix()
+
+    def _edit(self):
+        if self._url.value:
+            conn = sqlite3.connect(bukuDB)
+            c = conn.cursor()
+            c.execute('''UPDATE bookmarks SET URL = ?, metadata = ?, tags = ?, desc = ? WHERE URL = ?''', (self._url.value, self._name.value, ',%s,' % str(self._tags.value), str(self._desc.value), self._url.value))
+            conn.commit()
+
+            self._scene.remove_effect(self)
+            prev_widget._list._has_focus = True
+
+    def _autofill(self):
+        if self._url.value:
+            if not self._url.value.startswith('http://') and not self._url.value.startswith('https://'):
+                self._url.value = 'http://' + self._url.value
+
+            metadata = get_metadata(self._url.value)
+
+            if metadata:
+                if not self._name.value and metadata[0]:
+                    self._name.value = metadata[0]
+
+                if not self._desc.value and metadata[1]:
+                    self._desc.value = metadata[1]
+
+    def _cancel(self):
+        self._scene.remove_effect(self)
+        prev_widget._list._has_focus = True
+
+    def process_event(self, event):
+        # Do the key handling for this Frame.
+        if isinstance(event, KeyboardEvent):
+            if event.key_code == Screen.KEY_ESCAPE:
+                self._scene.remove_effect(self)
+
+        # Now pass on to lower levels for normal handling of the event.
+        return super(EBFrame, self).process_event(event)
+
+def bukuT(screen, scene):
+    screen.play([Scene([bukuTFrame(screen)], -1)], stop_on_resize=True, start_scene=scene, allow_int=True)
+
+def main():
+    db_load()
+
+    last_scene = None
+
+    while True:
+        try:
+            Screen.wrapper(bukuT, catch_interrupt=False, arguments=[last_scene])
+            sys.exit(0)
+        except ResizeScreenError as e:
+            last_scene = e.scene
+
+if __name__ == "__main__":
+    main()
+

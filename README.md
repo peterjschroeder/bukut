@@ -1,4 +1,4 @@
-# bukut
+# bukuT
 
 pip install git+https://github.com/peterjschroeder/bukut.git
 

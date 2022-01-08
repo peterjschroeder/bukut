@@ -320,6 +320,8 @@ class EBFrame(Frame):
         self._name.value = bookmarksf[selected_entry][2]
         self._url = Text(label='URL:')
         self._url.value = bookmarksf[selected_entry][1]
+        # FIXME: Disable editing the URL until I can figure out how to update a unique
+        self._url.disabled = True
         self._tags = Text(label='Tags:')
         self._tags.value = bookmarksf[selected_entry][3][1:][:-1]
         self._desc = TextBox(height=int(screen.height/2)-6, label='Description:', as_string=True, line_wrap=True)

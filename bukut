@@ -6,13 +6,92 @@ from asciimatics.scene import Scene
 from asciimatics.screen import Screen
 from asciimatics.widgets import Button, CheckBox, Divider, Frame, Layout, ListBox, PopUpDialog, Text, TextBox, VerticalDivider, Widget
 from collections import defaultdict
-import os, pyperclip, sqlite3, sys, threading, time, webbrowser
+import configparser, os, pyperclip, sqlite3, sys, threading, time, webbrowser
 from bs4 import BeautifulSoup
 from natsort import humansorted
 from urllib.parse import urlsplit
 from urllib.request import urlopen
+from xdg.BaseDirectory import *
 
 bukuDB = '/%s/.local/share/buku/bookmarks.db' % os.getenv("HOME")
+
+# Configuration
+os.makedirs(os.path.join(xdg_config_home, "bukut"), exist_ok=True)
+config_defaults_bukut = {
+        'clear_search_on_focus': 'false',
+        }
+
+colors = {
+        'default': Screen.COLOUR_DEFAULT,
+        'black': Screen.COLOUR_BLACK,
+        'red': Screen.COLOUR_RED,
+        'green': Screen.COLOUR_GREEN,
+        'yellow': Screen.COLOUR_YELLOW,
+        'blue': Screen.COLOUR_BLUE,
+        'magenta': Screen.COLOUR_MAGENTA,
+        'cyan': Screen.COLOUR_CYAN,
+        'white': Screen.COLOUR_WHITE
+        }
+
+attributes = {
+        'bold': Screen.A_BOLD,
+        'normal': Screen.A_NORMAL,
+        'reverse': Screen.A_REVERSE,
+        'underline': Screen.A_UNDERLINE
+        }
+
+config_defaults_pallette = {
+        'default': 'white,normal,black',
+        'borders': 'green,normal,black',
+        'edit_text': 'white,normal,black',
+        'focus_edit_text': 'yellow,bold,red',
+        'label': 'cyan,normal,black',
+        'scroll': 'green,normal,magenta',
+        'selected_field': 'black,normal,white',
+        'selected_focus_field': 'yellow,bold,red'
+        }
+
+config = configparser.ConfigParser()
+
+def config_create():
+    config.add_section('bukut')
+    config.add_section('pallette')
+
+    for i in config_defaults_bukut:
+        config['bukut'][i] = config_defaults_bukut[i]
+
+    for i in config_defaults_pallette:
+        config['pallette'][i] = config_defaults_pallette[i]
+
+    with open(os.path.join(xdg_config_home, 'bukut/config'), 'w') as configfile:
+        config.write(configfile)
+
+if not os.path.exists(os.path.join(xdg_config_home, 'bukut/config')):
+    config_create()
+
+config.read(os.path.join(xdg_config_home, 'bukut/config'))
+
+# Check for missing keys
+for i in config_defaults_bukut:
+    if not config.has_option('bukut', i):
+        config['bukut'][i] = config_defaults_bukut[i]
+for i in config_defaults_pallette:
+    if not config.has_option('pallette', i):
+        config['pallette'][i] = config_defaults_pallette[i]
+with open(os.path.join(xdg_config_home, 'bukut/config'), 'w') as configfile:
+    config.write(configfile)
+
+palette = {
+        'default': [colors[config['pallette']['default'].split(',')[0]], attributes[config['pallette']['default'].split(',')[1]], colors[config['pallette']['default'].split(',')[2]]],
+        'borders': [colors[config['pallette']['borders'].split(',')[0]], attributes[config['pallette']['borders'].split(',')[1]], colors[config['pallette']['borders'].split(',')[2]]],
+        'edit_text': [colors[config['pallette']['edit_text'].split(',')[0]], attributes[config['pallette']['edit_text'].split(',')[1]], colors[config['pallette']['edit_text'].split(',')[2]]],
+        'focus_edit_text': [colors[config['pallette']['focus_edit_text'].split(',')[0]], attributes[config['pallette']['focus_edit_text'].split(',')[1]], colors[config['pallette']['focus_edit_text'].split(',')[2]]],
+        'label': [colors[config['pallette']['label'].split(',')[0]], attributes[config['pallette']['label'].split(',')[1]], colors[config['pallette']['label'].split(',')[2]]],
+        'scroll': [colors[config['pallette']['scroll'].split(',')[0]], attributes[config['pallette']['scroll'].split(',')[1]], colors[config['pallette']['scroll'].split(',')[2]]],
+        'selected_field': [colors[config['pallette']['selected_field'].split(',')[0]], attributes[config['pallette']['selected_field'].split(',')[1]], colors[config['pallette']['selected_field'].split(',')[2]]],
+        'selected_focus_field': [colors[config['pallette']['selected_focus_field'].split(',')[0]], attributes[config['pallette']['selected_focus_field'].split(',')[1]], colors[config['pallette']['selected_focus_field'].split(',')[2]]]
+        }
+clear_search_on_focus = config.getboolean('bukut', 'clear_search_on_focus')
 
 def db_load():
     global bookmarks, bookmarksf, db_time
@@ -103,7 +182,7 @@ class bukuTFrame(Frame):
         self.add_layout(layout)
         self.add_layout(layout2)
 
-        self._searchbar = Text(label = '\U0001F50D', on_change=self.FilterBookmarks)
+        self._searchbar = Text(label = '\U0001F50D', on_change=self.FilterBookmarks, on_focus=self.CheckClearFocus)
         
         self._sbname = CheckBox("Name", name="Name", on_change=self.FilterBookmarks)
         self._sburl = CheckBox("URL", name="URL", on_change=self.FilterBookmarks)
@@ -139,15 +218,14 @@ class bukuTFrame(Frame):
         layout2.add_widget(self._details, 2)
 
         self.palette = defaultdict(
-            lambda: (Screen.COLOUR_WHITE, Screen.A_NORMAL, Screen.COLOUR_BLACK))
-        for key in ["selected_focus_field", "label"]:
-            self.palette[key] = (Screen.COLOUR_YELLOW, Screen.A_BOLD, Screen.COLOUR_RED)
-        self.palette["borders"] = (Screen.COLOUR_GREEN, Screen.A_NORMAL, Screen.COLOUR_BLACK)
-        self.palette["edit_text"] = (Screen.COLOUR_BLACK, Screen.A_NORMAL, Screen.COLOUR_WHITE)
-        self.palette["focus_edit_text"] = (Screen.COLOUR_YELLOW, Screen.A_BOLD, Screen.COLOUR_RED)
-        self.palette["label"] = (Screen.COLOUR_CYAN, Screen.A_NORMAL, Screen.COLOUR_BLACK)
-        self.palette["scroll"] = (Screen.COLOUR_GREEN, Screen.A_NORMAL, Screen.COLOUR_MAGENTA)
-        self.palette["selected_field"] = (Screen.COLOUR_BLACK, Screen.A_NORMAL, Screen.COLOUR_WHITE)
+            lambda: (palette["default"][0], palette["default"][1], palette["default"][2]))
+        self.palette["borders"] = (palette["borders"][0], palette["borders"][1], palette["borders"][2])
+        self.palette["edit_text"] = (palette["edit_text"][0], palette["edit_text"][1], palette["edit_text"][2])
+        self.palette["focus_edit_text"] = (palette["focus_edit_text"][0], palette["focus_edit_text"][1], palette["focus_edit_text"][2])
+        self.palette["label"] = (palette["label"][0], palette["label"][1], palette["label"][2])
+        self.palette["scroll"] = (palette["scroll"][0], palette["scroll"][1], palette["scroll"][2])
+        self.palette["selected_field"] = (palette["selected_field"][0], palette["selected_field"][1], palette["selected_field"][2])
+        self.palette["selected_focus_field"] = (palette["selected_focus_field"][0], palette["selected_focus_field"][1], palette["selected_focus_field"][2])
 
         self.fix()
 
@@ -155,6 +233,10 @@ class bukuTFrame(Frame):
         self._thread.timeout = 3
         self._thread.daemon = True
         self._thread.start()
+
+    def CheckClearFocus(self):
+        if clear_search_on_focus:
+            self._searchbar.value = ''
 
     def FilterBookmarks(self):
         global bookmarksf
@@ -226,7 +308,7 @@ class bukuTFrame(Frame):
                     self._scene.add_effect(EBFrame(self._screen))
                 elif event.key_code == Screen.KEY_DELETE:
                     bookmark_delete(self)
-                    
+
         # Now pass on to lower levels for normal handling of the event.
         return super(bukuTFrame, self).process_event(event)
 
@@ -256,15 +338,14 @@ class ABFrame(Frame):
         layout2.add_widget(Button("Cancel", self._cancel), 2)
 
         self.palette = defaultdict(
-            lambda: (Screen.COLOUR_WHITE, Screen.A_NORMAL, Screen.COLOUR_BLACK))
-        for key in ["selected_focus_field", "label"]:
-            self.palette[key] = (Screen.COLOUR_YELLOW, Screen.A_BOLD, Screen.COLOUR_RED)
-        self.palette["borders"] = (Screen.COLOUR_GREEN, Screen.A_NORMAL, Screen.COLOUR_BLACK)
-        self.palette["edit_text"] = (Screen.COLOUR_WHITE, Screen.A_NORMAL, Screen.COLOUR_BLACK)
-        self.palette["focus_edit_text"] = (Screen.COLOUR_YELLOW, Screen.A_BOLD, Screen.COLOUR_RED)
-        self.palette["label"] = (Screen.COLOUR_CYAN, Screen.A_NORMAL, Screen.COLOUR_BLACK)
-        self.palette["scroll"] = (Screen.COLOUR_GREEN, Screen.A_NORMAL, Screen.COLOUR_MAGENTA)
-        self.palette["selected_field"] = (Screen.COLOUR_BLACK, Screen.A_NORMAL, Screen.COLOUR_WHITE)
+            lambda: (palette["default"][0], palette["default"][1], palette["default"][2]))
+        self.palette["borders"] = (palette["borders"][0], palette["borders"][1], palette["borders"][2])
+        self.palette["edit_text"] = (palette["edit_text"][0], palette["edit_text"][1], palette["edit_text"][2])
+        self.palette["focus_edit_text"] = (palette["focus_edit_text"][0], palette["focus_edit_text"][1], palette["focus_edit_text"][2])
+        self.palette["label"] = (palette["label"][0], palette["label"][1], palette["label"][2])
+        self.palette["scroll"] = (palette["scroll"][0], palette["scroll"][1], palette["scroll"][2])
+        self.palette["selected_field"] = (palette["selected_field"][0], palette["selected_field"][1], palette["selected_field"][2])
+        self.palette["selected_focus_field"] = (palette["selected_focus_field"][0], palette["selected_focus_field"][1], palette["selected_focus_field"][2])
 
         self.fix()
 
@@ -337,15 +418,14 @@ class EBFrame(Frame):
         layout2.add_widget(Button("Cancel", self._cancel), 2)
 
         self.palette = defaultdict(
-            lambda: (Screen.COLOUR_WHITE, Screen.A_NORMAL, Screen.COLOUR_BLACK))
-        for key in ["selected_focus_field", "label"]:
-            self.palette[key] = (Screen.COLOUR_YELLOW, Screen.A_BOLD, Screen.COLOUR_RED)
-        self.palette["borders"] = (Screen.COLOUR_GREEN, Screen.A_NORMAL, Screen.COLOUR_BLACK)
-        self.palette["edit_text"] = (Screen.COLOUR_WHITE, Screen.A_NORMAL, Screen.COLOUR_BLACK)
-        self.palette["focus_edit_text"] = (Screen.COLOUR_YELLOW, Screen.A_BOLD, Screen.COLOUR_RED)
-        self.palette["label"] = (Screen.COLOUR_CYAN, Screen.A_NORMAL, Screen.COLOUR_BLACK)
-        self.palette["scroll"] = (Screen.COLOUR_GREEN, Screen.A_NORMAL, Screen.COLOUR_MAGENTA)
-        self.palette["selected_field"] = (Screen.COLOUR_BLACK, Screen.A_NORMAL, Screen.COLOUR_WHITE)
+            lambda: (palette["default"][0], palette["default"][1], palette["default"][2]))
+        self.palette["borders"] = (palette["borders"][0], palette["borders"][1], palette["borders"][2])
+        self.palette["edit_text"] = (palette["edit_text"][0], palette["edit_text"][1], palette["edit_text"][2])
+        self.palette["focus_edit_text"] = (palette["focus_edit_text"][0], palette["focus_edit_text"][1], palette["focus_edit_text"][2])
+        self.palette["label"] = (palette["label"][0], palette["label"][1], palette["label"][2])
+        self.palette["scroll"] = (palette["scroll"][0], palette["scroll"][1], palette["scroll"][2])
+        self.palette["selected_field"] = (palette["selected_field"][0], palette["selected_field"][1], palette["selected_field"][2])
+        self.palette["selected_focus_field"] = (palette["selected_focus_field"][0], palette["selected_focus_field"][1], palette["selected_focus_field"][2])
 
         self.fix()
 

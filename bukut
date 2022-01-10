@@ -304,6 +304,9 @@ class bukuTFrame(Frame):
                     self._scene.add_effect(EBFrame(self._screen))
                 elif event.key_code == Screen.KEY_DELETE:
                     bookmark_delete(self)
+            if self._searchbar._has_focus:
+                if event.key_code == Screen.KEY_DOWN:
+                    self._list._has_focus = True
 
         # Now pass on to lower levels for normal handling of the event.
         return super(bukuTFrame, self).process_event(event)

@@ -13,4 +13,5 @@ Del deletes a bookmark\
 Insert adds a new bookmark\
 Ctrl+e edits a bookmark\
 Ctrl+y copies url to clipboard\
-Ctrl+q exits the program
+Ctrl+q exits the program\
+Ctrl+a open url through the Wayback Machine

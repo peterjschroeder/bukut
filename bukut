@@ -183,7 +183,7 @@ class bukuTFrame(Frame):
         self.add_layout(layout2)
 
         self._searchbar = Text(label = '\U0001F50D', on_change=self.FilterBookmarks, on_focus=self.CheckClearFocus)
-        
+
         self._sbname = CheckBox("Name", name="Name", on_change=self.FilterBookmarks)
         self._sburl = CheckBox("URL", name="URL", on_change=self.FilterBookmarks)
         self._sbtags = CheckBox("Tags", name="Tags", on_change=self.FilterBookmarks)
@@ -282,12 +282,6 @@ class bukuTFrame(Frame):
             conn.commit()
             self._list._has_focus = True
 
-#            last_selection = self._list.value
-#            last_start = self._list.start_line
-
-#            self._list.value = last_selection
-#            self._list.start_line = last_start
-
     def process_event(self, event):
         global prev_widget
 
@@ -303,6 +297,8 @@ class bukuTFrame(Frame):
                 elif event.key_code == Screen.KEY_INSERT:
                     prev_widget = self
                     self._scene.add_effect(ABFrame(self._screen))
+                elif event.key_code in [Screen.ctrl("a")]:
+                    webbrowser.open("http://web.archive.org/web/"+bookmarksf[self._list.value][1], new=2)
                 elif event.key_code in [Screen.ctrl("e")]:
                     prev_widget = self
                     self._scene.add_effect(EBFrame(self._screen))

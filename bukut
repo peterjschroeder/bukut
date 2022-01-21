@@ -293,17 +293,20 @@ class bukuTFrame(Frame):
             if event.key_code in [Screen.ctrl("q")]:
                 raise StopApplication("User quit")
             elif event.key_code in [Screen.ctrl("h")]:
-                # FIXME: This is dumb. asciimatics has focused_widget, but I don't currently know how to access it. Also this will not restore focus to the searchbar.
+                # FIXME: This is dumb. asciimatics has focused_widget, but I don't currently know how to access it properly.
+                if self._searchbar._has_focus:
+                    prev_widget = self._searchbar
                 if self._sbname._has_focus:
                     prev_widget = self._sbname
-                if self._sburl._has_focus:
+                elif self._sburl._has_focus:
                     prev_widget = self._sburl
-                if self._sbtags._has_focus:
+                elif self._sbtags._has_focus:
                     prev_widget = self._sbtags
-                if self._sbdesc._has_focus:
+                elif self._sbdesc._has_focus:
                     prev_widget = self._sbdesc
-                if self._list._has_focus:
+                elif self._list._has_focus:
                     prev_widget = self._list
+#                prev_widget = Frame.focussed_widget
                 self._scene.add_effect(helpFrame(self._screen))
             if self._list._has_focus:
                 if event.key_code == 10 or event.key_code == 13:
@@ -473,6 +476,7 @@ class helpFrame(Frame):
         self._help = TextBox(Widget.FILL_FRAME, parser=AsciimaticsParser(), as_string=True, line_wrap=True)
         self._help.disabled = True
         self._help.custom_colour = "field"
+
         self._help.value = "${4}Keys${7}\n${3}Enter${7} Opens the url in the default web browser.\n${3}Del${7} Deletes selected bookmark.\n${3}Insert${7} Adds a new bookmark.\n${3}Ctrl+e${7} Edits selected bookmark.\n${3}Ctrl+y${7} Copies the selected url to the system clipboard.\n${3}Ctrl+a${7} Open the url through the Wayback Machine in the default web browser.\n${3}Ctrl+q${7} Brings up the help screen.\n${3}Ctrl+q${7} Exits the program."
 
         layout.add_widget(self._help, 0)
@@ -480,7 +484,7 @@ class helpFrame(Frame):
         set_palette(self)
 
         self.fix()
-
+        
     def process_event(self, event):
         global prev_widget
 

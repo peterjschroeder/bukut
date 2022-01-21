@@ -8,10 +8,11 @@ pip install git+https://github.com/peterjschroeder/bukut.git
 Autofill only works for some sites.
 
 Keys\
-Enter opens url in browser.\
-Del deletes a bookmark\
-Insert adds a new bookmark\
-Ctrl+e edits a bookmark\
-Ctrl+y copies url to clipboard\
-Ctrl+q exits the program\
-Ctrl+a open url through the Wayback Machine
+Enter Opens the url in the default web browser.\
+Del Deletes selected bookmark.\
+Insert Adds a new bookmark.\
+Ctrl+e Edits selected bookmark.\
+Ctrl+y Copies the selected url to the system clipboard.\
+Ctrl+a Open the url through the Wayback Machine in the default web browser.\
+Ctrl+h Brings up the help screen.\
+Ctrl+q Exits the program.

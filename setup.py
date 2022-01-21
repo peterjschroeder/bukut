@@ -4,7 +4,7 @@ from distutils.core import setup
 
 setup(
         name='bukut', 
-        version='0.11', 
+        version='0.12', 
         description='Bookmarks manager', 
         author='Peter J. Schroeder', 
         author_email='peterjschroeder@gmail.com', 

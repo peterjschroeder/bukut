@@ -5,6 +5,7 @@ from asciimatics.parsers import AsciimaticsParser
 from asciimatics.scene import Scene
 from asciimatics.screen import Screen
 from asciimatics.widgets import Button, CheckBox, Divider, Frame, Layout, ListBox, PopUpDialog, Text, TextBox, VerticalDivider, Widget
+from asciimatics.widgets.utilities import THEMES
 from collections import defaultdict
 import configparser, os, pyperclip, sqlite3, sys, threading, time, webbrowser
 from bs4 import BeautifulSoup
@@ -41,14 +42,27 @@ attributes = {
         }
 
 config_defaults_pallette = {
-        'default': 'white,normal,black',
-        'borders': 'green,normal,black',
+        'background': 'white,normal,black',
+        'borders': 'red,bold,black',
+        'button': 'white,normal,black',
+        'control': 'yellow,normal,black',
+        'disabled': 'black,bold,blue',
         'edit_text': 'white,normal,black',
+        'field': 'white,normal,black',
+        'focus_button': 'yellow,bold,red',
+        'focus_control': 'yellow,normal,black',
         'focus_edit_text': 'yellow,bold,red',
-        'label': 'cyan,normal,black',
-        'scroll': 'green,normal,magenta',
+        'focus_field': 'white,normal,black',
+        'focus_readonly': 'black,bold,cyan',
+        'invalid': 'yellow,bold,red',
+        'label': 'yellow,normal,black',
+        'readonly': 'black,bold,blue',
+        'scroll': 'red,normal,yellow',
+        'selected_control': 'yellow,bold,black',
         'selected_field': 'black,normal,white',
-        'selected_focus_field': 'yellow,bold,red'
+        'selected_focus_control': 'yellow,bold,red',
+        'selected_focus_field': 'yellow,bold,red',
+        'title': 'white,bold,black'
         }
 
 config = configparser.ConfigParser()
@@ -81,16 +95,28 @@ for i in config_defaults_pallette:
 with open(os.path.join(xdg_config_home, 'bukut/config'), 'w') as configfile:
     config.write(configfile)
 
-palette = {
-        'default': [colors[config['pallette']['default'].split(',')[0]], attributes[config['pallette']['default'].split(',')[1]], colors[config['pallette']['default'].split(',')[2]]],
-        'borders': [colors[config['pallette']['borders'].split(',')[0]], attributes[config['pallette']['borders'].split(',')[1]], colors[config['pallette']['borders'].split(',')[2]]],
-        'edit_text': [colors[config['pallette']['edit_text'].split(',')[0]], attributes[config['pallette']['edit_text'].split(',')[1]], colors[config['pallette']['edit_text'].split(',')[2]]],
-        'focus_edit_text': [colors[config['pallette']['focus_edit_text'].split(',')[0]], attributes[config['pallette']['focus_edit_text'].split(',')[1]], colors[config['pallette']['focus_edit_text'].split(',')[2]]],
-        'label': [colors[config['pallette']['label'].split(',')[0]], attributes[config['pallette']['label'].split(',')[1]], colors[config['pallette']['label'].split(',')[2]]],
-        'scroll': [colors[config['pallette']['scroll'].split(',')[0]], attributes[config['pallette']['scroll'].split(',')[1]], colors[config['pallette']['scroll'].split(',')[2]]],
-        'selected_field': [colors[config['pallette']['selected_field'].split(',')[0]], attributes[config['pallette']['selected_field'].split(',')[1]], colors[config['pallette']['selected_field'].split(',')[2]]],
-        'selected_focus_field': [colors[config['pallette']['selected_focus_field'].split(',')[0]], attributes[config['pallette']['selected_focus_field'].split(',')[1]], colors[config['pallette']['selected_focus_field'].split(',')[2]]]
-        }
+THEMES.update({
+    "default": {
+        'background': (colors[config['pallette']['background'].split(',')[0]], attributes[config['pallette']['background'].split(',')[1]], colors[config['pallette']['background'].split(',')[2]]),
+        'borders': (colors[config['pallette']['borders'].split(',')[0]], attributes[config['pallette']['borders'].split(',')[1]], colors[config['pallette']['borders'].split(',')[2]]),
+        'button': (colors[config['pallette']['button'].split(',')[0]], attributes[config['pallette']['button'].split(',')[1]], colors[config['pallette']['button'].split(',')[2]]),
+        'control': (colors[config['pallette']['control'].split(',')[0]], attributes[config['pallette']['control'].split(',')[1]], colors[config['pallette']['control'].split(',')[2]]),
+        'disabled':(colors[config['pallette']['disabled'].split(',')[0]], attributes[config['pallette']['disabled'].split(',')[1]], colors[config['pallette']['disabled'].split(',')[2]]),
+        'edit_text': (colors[config['pallette']['edit_text'].split(',')[0]], attributes[config['pallette']['edit_text'].split(',')[1]], colors[config['pallette']['edit_text'].split(',')[2]]),
+        'field': (colors[config['pallette']['field'].split(',')[0]], attributes[config['pallette']['field'].split(',')[1]], colors[config['pallette']['field'].split(',')[2]]),
+        'focus_edit_text': (colors[config['pallette']['focus_edit_text'].split(',')[0]], attributes[config['pallette']['focus_edit_text'].split(',')[1]], colors[config['pallette']['focus_edit_text'].split(',')[2]]),
+        'focus_button':(colors[config['pallette']['focus_button'].split(',')[0]], attributes[config['pallette']['focus_button'].split(',')[1]], colors[config['pallette']['focus_button'].split(',')[2]]),
+        'focus_field': (colors[config['pallette']['focus_field'].split(',')[0]], attributes[config['pallette']['focus_field'].split(',')[1]], colors[config['pallette']['focus_field'].split(',')[2]]),
+        'focus_readonly':(colors[config['pallette']['focus_readonly'].split(',')[0]], attributes[config['pallette']['focus_readonly'].split(',')[1]], colors[config['pallette']['focus_readonly'].split(',')[2]]),
+        'invalid': (colors[config['pallette']['invalid'].split(',')[0]], attributes[config['pallette']['invalid'].split(',')[1]], colors[config['pallette']['invalid'].split(',')[2]]),
+        'label': (colors[config['pallette']['label'].split(',')[0]], attributes[config['pallette']['label'].split(',')[1]], colors[config['pallette']['label'].split(',')[2]]),
+        'readonly': (colors[config['pallette']['readonly'].split(',')[0]], attributes[config['pallette']['readonly'].split(',')[1]], colors[config['pallette']['readonly'].split(',')[2]]),
+        'scroll': (colors[config['pallette']['scroll'].split(',')[0]], attributes[config['pallette']['scroll'].split(',')[1]], colors[config['pallette']['scroll'].split(',')[2]]),
+        'selected_field': (colors[config['pallette']['selected_field'].split(',')[0]], attributes[config['pallette']['selected_field'].split(',')[1]], colors[config['pallette']['selected_field'].split(',')[2]]),
+        'selected_focus_control': (colors[config['pallette']['selected_focus_control'].split(',')[0]], attributes[config['pallette']['selected_focus_control'].split(',')[1]], colors[config['pallette']['selected_focus_control'].split(',')[2]]),
+        'selected_focus_field': (colors[config['pallette']['selected_focus_field'].split(',')[0]], attributes[config['pallette']['selected_focus_field'].split(',')[1]], colors[config['pallette']['selected_focus_field'].split(',')[2]]),
+        'title': (colors[config['pallette']['title'].split(',')[0]], attributes[config['pallette']['title'].split(',')[1]], colors[config['pallette']['title'].split(',')[2]])
+        }})
 clear_search_on_focus = config.getboolean('bukut', 'clear_search_on_focus')
 
 def db_load():
@@ -171,17 +197,6 @@ selected_entry = 0
 # FIXME: Hack to store the last frame's selected widget. There is probably a proper way to do this.
 prev_widget = None
 
-def set_palette(self):
-    self.palette = defaultdict(
-        lambda: (palette["default"][0], palette["default"][1], palette["default"][2]))
-    self.palette["borders"] = (palette["borders"][0], palette["borders"][1], palette["borders"][2])
-    self.palette["edit_text"] = (palette["edit_text"][0], palette["edit_text"][1], palette["edit_text"][2])
-    self.palette["focus_edit_text"] = (palette["focus_edit_text"][0], palette["focus_edit_text"][1], palette["focus_edit_text"][2])
-    self.palette["label"] = (palette["label"][0], palette["label"][1], palette["label"][2])
-    self.palette["scroll"] = (palette["scroll"][0], palette["scroll"][1], palette["scroll"][2])
-    self.palette["selected_field"] = (palette["selected_field"][0], palette["selected_field"][1], palette["selected_field"][2])
-    self.palette["selected_focus_field"] = (palette["selected_focus_field"][0], palette["selected_focus_field"][1], palette["selected_focus_field"][2])
-
 class bukuTFrame(Frame):
     def __init__(self, screen):
         super(bukuTFrame, self).__init__(
@@ -228,8 +243,6 @@ class bukuTFrame(Frame):
         layout2.add_widget(VerticalDivider(), 1)
         layout2.add_widget(self._details, 2)
 
-        set_palette(self)
-
         self.fix()
 
         self._thread = threading.Thread(target=self._db_cfc)
@@ -262,7 +275,9 @@ class bukuTFrame(Frame):
         global selected_entry
 
         if self._list.options:
-            self._details.value = "${9}Name:${7} %s\n${9}URL:${7} %s\n${9}Tags:${7} %s\n${9}Description:${7} %s\n" % (bookmarksf[self._list.value][2], bookmarksf[self._list.value][1], bookmarksf[self._list.value][3][1:][:-1], bookmarksf[self._list.value][4])
+            color_label = int(colors[config['pallette']['label'].split(',')[0]])
+            color_default = int(colors[config['pallette']['background'].split(',')[0]])
+            self._details.value = "${%d}Name:${%d} %s\n${%d}URL:${%d} %s\n${%d}Tags:${%d} %s\n${%d}Description:${%d} %s\n" % (color_label, color_default, bookmarksf[self._list.value][2], color_label, color_default, bookmarksf[self._list.value][1], color_label, color_default, bookmarksf[self._list.value][3][1:][:-1], color_label, color_default, bookmarksf[self._list.value][4])
             selected_entry = self._list.value
         else:
             self._details.value = ""
@@ -352,8 +367,6 @@ class ABFrame(Frame):
         layout2.add_widget(Button("Autofill", self._autofill), 1)
         layout2.add_widget(Button("Cancel", self._cancel), 2)
 
-        set_palette(self)
-
         self.fix()
 
     def _add(self):
@@ -423,8 +436,6 @@ class EBFrame(Frame):
         layout2.add_widget(Button("Autofill", self._autofill), 1)
         layout2.add_widget(Button("Cancel", self._cancel), 2)
 
-        set_palette(self)
-
         self.fix()
 
     def _edit(self):
@@ -467,21 +478,21 @@ class EBFrame(Frame):
 class helpFrame(Frame):
     def __init__(self, screen):
         super(helpFrame, self).__init__(
-            screen, screen.height, screen.width, has_border=True, name="Help", can_scroll=False)
+            screen, int(screen.height/1.4), int(screen.width/1.4), has_border=True, name="Help", can_scroll=False)
 
         layout = Layout([100], fill_frame=False)
 
         self.add_layout(layout)
 
-        self._help = TextBox(Widget.FILL_FRAME, parser=AsciimaticsParser(), as_string=True, line_wrap=True)
+        self._help = TextBox(Widget.FILL_FRAME, as_string=True, line_wrap=True, parser=AsciimaticsParser())
         self._help.disabled = True
         self._help.custom_colour = "field"
 
-        self._help.value = "${4}Keys${7}\n${3}Enter${7} Opens the url in the default web browser.\n${3}Del${7} Deletes selected bookmark.\n${3}Insert${7} Adds a new bookmark.\n${3}Ctrl+e${7} Edits selected bookmark.\n${3}Ctrl+y${7} Copies the selected url to the system clipboard.\n${3}Ctrl+a${7} Open the url through the Wayback Machine in the default web browser.\n${3}Ctrl+q${7} Brings up the help screen.\n${3}Ctrl+q${7} Exits the program."
+        color_label = int(colors[config['pallette']['label'].split(',')[0]])
+        color_default = int(colors[config['pallette']['background'].split(',')[0]])
+        self._help.value = "${%d}Keys${%d}\n${%d}Enter${%d} Opens the url in the default web browser.\n${%d}Del${%d} Deletes selected bookmark.\n${%d}Insert${%d} Adds a new bookmark.\n${%d}Ctrl+e${%d} Edits selected bookmark.\n${%d}Ctrl+y${%d} Copies the selected url to the system clipboard.\n${%d}Ctrl+a${%d} Open the url through the Wayback Machine in the default web browser.\n${%d}Ctrl+q${%d} Brings up the help screen.\n${%d}Ctrl+q${%d} Exits the program." % (color_label, color_default, color_label, color_default, color_label, color_default, color_label, color_default, color_label, color_default, color_label, color_default, color_label, color_default, color_label, color_default, color_default, color_label)
 
         layout.add_widget(self._help, 0)
-
-        set_palette(self)
 
         self.fix()
         

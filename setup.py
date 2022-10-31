@@ -10,6 +10,6 @@ setup(
         author_email='peterjschroeder@gmail.com', 
         url='https://github.com/peterjschroeder/bukut',
         scripts=['bukut'],
-        install_requires=['asciimatics', 'beautifulsoup4', 'natsort', 'pyperclip', 'tuicolor @ https://github.com/peterjschroeder/tuicolor.git']
+        install_requires=['asciimatics', 'beautifulsoup4', 'natsort', 'pyperclip', 'tuicolor @ git+https://github.com/peterjschroeder/tuicolor.git']
 )
 

@@ -7,7 +7,7 @@ from asciimatics.screen import Screen
 from asciimatics.widgets import Button, CheckBox, Divider, Frame, Layout, ListBox, PopUpDialog, Text, TextBox, VerticalDivider, Widget
 from asciimatics.widgets.utilities import THEMES
 from collections import defaultdict
-import configparser, os, pyperclip, sqlite3, sys, threading, time, webbrowser
+import configparser, os, pyperclip, sqlite3, sys, threading, time, tuicolor, webbrowser
 from bs4 import BeautifulSoup
 from natsort import humansorted
 from urllib.parse import urlsplit
@@ -17,65 +17,19 @@ from xdg.BaseDirectory import *
 bukuDB = '/%s/.local/share/buku/bookmarks.db' % os.getenv("HOME")
 
 # Configuration
+tuicolor.config_load('asciimatics')
 os.makedirs(os.path.join(xdg_config_home, "bukut"), exist_ok=True)
 config_defaults_bukut = {
         'clear_search_on_focus': 'false',
-        }
-
-colors = {
-        'default': Screen.COLOUR_DEFAULT,
-        'black': Screen.COLOUR_BLACK,
-        'red': Screen.COLOUR_RED,
-        'green': Screen.COLOUR_GREEN,
-        'yellow': Screen.COLOUR_YELLOW,
-        'blue': Screen.COLOUR_BLUE,
-        'magenta': Screen.COLOUR_MAGENTA,
-        'cyan': Screen.COLOUR_CYAN,
-        'white': Screen.COLOUR_WHITE
-        }
-
-attributes = {
-        'bold': Screen.A_BOLD,
-        'normal': Screen.A_NORMAL,
-        'reverse': Screen.A_REVERSE,
-        'underline': Screen.A_UNDERLINE
-        }
-
-config_defaults_pallette = {
-        'background': 'white,normal,black',
-        'borders': 'red,bold,black',
-        'button': 'white,normal,black',
-        'control': 'yellow,normal,black',
-        'disabled': 'black,bold,blue',
-        'edit_text': 'white,normal,black',
-        'field': 'white,normal,black',
-        'focus_button': 'yellow,bold,red',
-        'focus_control': 'yellow,normal,black',
-        'focus_edit_text': 'yellow,bold,red',
-        'focus_field': 'white,normal,black',
-        'focus_readonly': 'black,bold,cyan',
-        'invalid': 'yellow,bold,red',
-        'label': 'yellow,normal,black',
-        'readonly': 'black,bold,blue',
-        'scroll': 'red,normal,yellow',
-        'selected_control': 'yellow,bold,black',
-        'selected_field': 'black,normal,white',
-        'selected_focus_control': 'yellow,bold,red',
-        'selected_focus_field': 'yellow,bold,red',
-        'title': 'white,bold,black'
         }
 
 config = configparser.ConfigParser()
 
 def config_create():
     config.add_section('bukut')
-    config.add_section('pallette')
 
     for i in config_defaults_bukut:
         config['bukut'][i] = config_defaults_bukut[i]
-
-    for i in config_defaults_pallette:
-        config['pallette'][i] = config_defaults_pallette[i]
 
     with open(os.path.join(xdg_config_home, 'bukut/config'), 'w') as configfile:
         config.write(configfile)
@@ -89,34 +43,9 @@ config.read(os.path.join(xdg_config_home, 'bukut/config'))
 for i in config_defaults_bukut:
     if not config.has_option('bukut', i):
         config['bukut'][i] = config_defaults_bukut[i]
-for i in config_defaults_pallette:
-    if not config.has_option('pallette', i):
-        config['pallette'][i] = config_defaults_pallette[i]
 with open(os.path.join(xdg_config_home, 'bukut/config'), 'w') as configfile:
     config.write(configfile)
 
-THEMES.update({
-    "default": {
-        'background': (colors[config['pallette']['background'].split(',')[0]], attributes[config['pallette']['background'].split(',')[1]], colors[config['pallette']['background'].split(',')[2]]),
-        'borders': (colors[config['pallette']['borders'].split(',')[0]], attributes[config['pallette']['borders'].split(',')[1]], colors[config['pallette']['borders'].split(',')[2]]),
-        'button': (colors[config['pallette']['button'].split(',')[0]], attributes[config['pallette']['button'].split(',')[1]], colors[config['pallette']['button'].split(',')[2]]),
-        'control': (colors[config['pallette']['control'].split(',')[0]], attributes[config['pallette']['control'].split(',')[1]], colors[config['pallette']['control'].split(',')[2]]),
-        'disabled':(colors[config['pallette']['disabled'].split(',')[0]], attributes[config['pallette']['disabled'].split(',')[1]], colors[config['pallette']['disabled'].split(',')[2]]),
-        'edit_text': (colors[config['pallette']['edit_text'].split(',')[0]], attributes[config['pallette']['edit_text'].split(',')[1]], colors[config['pallette']['edit_text'].split(',')[2]]),
-        'field': (colors[config['pallette']['field'].split(',')[0]], attributes[config['pallette']['field'].split(',')[1]], colors[config['pallette']['field'].split(',')[2]]),
-        'focus_edit_text': (colors[config['pallette']['focus_edit_text'].split(',')[0]], attributes[config['pallette']['focus_edit_text'].split(',')[1]], colors[config['pallette']['focus_edit_text'].split(',')[2]]),
-        'focus_button':(colors[config['pallette']['focus_button'].split(',')[0]], attributes[config['pallette']['focus_button'].split(',')[1]], colors[config['pallette']['focus_button'].split(',')[2]]),
-        'focus_field': (colors[config['pallette']['focus_field'].split(',')[0]], attributes[config['pallette']['focus_field'].split(',')[1]], colors[config['pallette']['focus_field'].split(',')[2]]),
-        'focus_readonly':(colors[config['pallette']['focus_readonly'].split(',')[0]], attributes[config['pallette']['focus_readonly'].split(',')[1]], colors[config['pallette']['focus_readonly'].split(',')[2]]),
-        'invalid': (colors[config['pallette']['invalid'].split(',')[0]], attributes[config['pallette']['invalid'].split(',')[1]], colors[config['pallette']['invalid'].split(',')[2]]),
-        'label': (colors[config['pallette']['label'].split(',')[0]], attributes[config['pallette']['label'].split(',')[1]], colors[config['pallette']['label'].split(',')[2]]),
-        'readonly': (colors[config['pallette']['readonly'].split(',')[0]], attributes[config['pallette']['readonly'].split(',')[1]], colors[config['pallette']['readonly'].split(',')[2]]),
-        'scroll': (colors[config['pallette']['scroll'].split(',')[0]], attributes[config['pallette']['scroll'].split(',')[1]], colors[config['pallette']['scroll'].split(',')[2]]),
-        'selected_field': (colors[config['pallette']['selected_field'].split(',')[0]], attributes[config['pallette']['selected_field'].split(',')[1]], colors[config['pallette']['selected_field'].split(',')[2]]),
-        'selected_focus_control': (colors[config['pallette']['selected_focus_control'].split(',')[0]], attributes[config['pallette']['selected_focus_control'].split(',')[1]], colors[config['pallette']['selected_focus_control'].split(',')[2]]),
-        'selected_focus_field': (colors[config['pallette']['selected_focus_field'].split(',')[0]], attributes[config['pallette']['selected_focus_field'].split(',')[1]], colors[config['pallette']['selected_focus_field'].split(',')[2]]),
-        'title': (colors[config['pallette']['title'].split(',')[0]], attributes[config['pallette']['title'].split(',')[1]], colors[config['pallette']['title'].split(',')[2]])
-        }})
 clear_search_on_focus = config.getboolean('bukut', 'clear_search_on_focus')
 
 def db_load():
@@ -275,8 +204,8 @@ class bukuTFrame(Frame):
         global selected_entry
 
         if self._list.options:
-            color_label = int(colors[config['pallette']['label'].split(',')[0]])
-            color_default = int(colors[config['pallette']['background'].split(',')[0]])
+            color_label = THEMES['default']['label'][0]
+            color_default = THEMES['default']['background'][0]
             self._details.value = "${%d}Name:${%d} %s\n${%d}URL:${%d} %s\n${%d}Tags:${%d} %s\n${%d}Description:${%d} %s\n" % (color_label, color_default, bookmarksf[self._list.value][2], color_label, color_default, bookmarksf[self._list.value][1], color_label, color_default, bookmarksf[self._list.value][3][1:][:-1], color_label, color_default, bookmarksf[self._list.value][4])
             selected_entry = self._list.value
         else:
@@ -488,8 +417,8 @@ class helpFrame(Frame):
         self._help.disabled = True
         self._help.custom_colour = "field"
 
-        color_label = int(colors[config['pallette']['label'].split(',')[0]])
-        color_default = int(colors[config['pallette']['background'].split(',')[0]])
+        color_label = THEMES['default']['label'][0]
+        color_default = THEMES['default']['background'][0]
         self._help.value = "${%d}Keys${%d}\n${%d}Enter${%d} Opens the url in the default web browser.\n${%d}Del${%d} Deletes selected bookmark.\n${%d}Insert${%d} Adds a new bookmark.\n${%d}Ctrl+e${%d} Edits selected bookmark.\n${%d}Ctrl+y${%d} Copies the selected url to the system clipboard.\n${%d}Ctrl+a${%d} Open the url through the Wayback Machine in the default web browser.\n${%d}Ctrl+q${%d} Brings up the help screen.\n${%d}Ctrl+q${%d} Exits the program." % (color_label, color_default, color_label, color_default, color_label, color_default, color_label, color_default, color_label, color_default, color_label, color_default, color_label, color_default, color_label, color_default, color_default, color_label)
 
         layout.add_widget(self._help, 0)

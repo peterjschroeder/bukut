@@ -4,12 +4,12 @@ from distutils.core import setup
 
 setup(
         name='bukut', 
-        version='0.12', 
+        version='0.13', 
         description='Bookmarks manager', 
         author='Peter J. Schroeder', 
         author_email='peterjschroeder@gmail.com', 
         url='https://github.com/peterjschroeder/bukut',
         scripts=['bukut'],
-        install_requires=['asciimatics', 'beautifulsoup4', 'natsort', 'pyperclip']
+        install_requires=['asciimatics', 'beautifulsoup4', 'natsort', 'pyperclip', 'tuicolor @ https://github.com/peterjschroeder/tuicolor.git']
 )
 
